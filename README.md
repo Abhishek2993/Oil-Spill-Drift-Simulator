@@ -2,7 +2,7 @@
 
 An advanced emergency-response decision support system designed to simulate and visualize the trajectory of oil spills in real-time. Built with a high-performance Python backend and an interactive JavaScript dashboard.
 
-## 🌊 Core Functionality
+##  Core Functionality
 
 - **Live Data Integration**: Fetches real-time ocean current, wind, and wave data from **NOAA ERDDAP** (OSCAR/GFS) and **Copernicus Marine Service**.
 - **Lagrangian Particle Tracking**: Implements a physics-based simulation engine using 4th-order Runge-Kutta (RK4) integration to predict particle drift.
@@ -10,7 +10,7 @@ An advanced emergency-response decision support system designed to simulate and 
 - **ML Severity Assessment**: Uses a **Random Forest classifier** trained on physics-informed synthetic data to estimate spill severity (Low, Moderate, High) and spread rates.
 - **Interactive Map Dashboard**: High-performance canvas rendering on Leaflet.js for smooth animation of thousands of particles.
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 ### Backend
 - **FastAPI**: Modern, high-performance web framework.
@@ -23,7 +23,7 @@ An advanced emergency-response decision support system designed to simulate and 
 - **HTML5 Canvas**: High-frequency rendering for particle trajectories.
 - **Vanilla CSS**: Premium dark-themed emergency response interface.
 
-## 🚀 How It Works
+##  How It Works
 
 ### 1. Data Fetching
 When a simulation is triggered, the backend queries the **NOAA ERDDAP** servers for the specific geographic domain. It retrieves:
@@ -50,7 +50,7 @@ The **Random Forest** model analyzes:
 - Evaporation rate.
 It provides a probability distribution across severity levels to assist decision-makers.
 
-## 📦 Installation & Setup
+##  Installation & Setup
 
 1. **Clone the repository**:
    ```bash
@@ -78,7 +78,7 @@ It provides a probability distribution across severity levels to assist decision
 5. **Open Dashboard**:
    Navigate to [http://localhost:8000](http://localhost:8000).
 
-## 📡 API Endpoints
+##  API Endpoints
 
 - `POST /api/simulate`: Runs a full 72-hour drift simulation.
 - `POST /api/classify`: Predicts severity based on spill metadata.
