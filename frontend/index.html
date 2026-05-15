@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Real-time oil spill drift prediction and visualization for emergency response decision support">
+    <title>OilSpill Drift Tracker — Emergency Response Dashboard</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Top Navigation Bar                                                  -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <header id="top-bar">
+        <div class="top-bar-left">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="14" stroke="url(#logo-grad)" stroke-width="2.5" fill="none"/>
+                    <path d="M16 6C16 6 10 14 10 19C10 22.3 12.7 25 16 25C19.3 25 22 22.3 22 19C22 14 16 6 16 6Z" fill="url(#logo-grad)"/>
+                    <defs>
+                        <linearGradient id="logo-grad" x1="4" y1="4" x2="28" y2="28">
+                            <stop stop-color="#FF6B35"/>
+                            <stop offset="1" stop-color="#E8333C"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <span class="logo-text">OilSpill<span class="logo-accent">Tracker</span></span>
+            </div>
+            <div class="status-badge" id="system-status">
+                <span class="status-dot"></span>
+                <span class="status-text">System Ready</span>
+            </div>
+        </div>
+        <div class="top-bar-right">
+            <div class="data-source-tags">
+                <span class="tag" id="tag-currents" title="Ocean current data source">
+                    <span class="tag-dot"></span>CURRENTS
+                </span>
+                <span class="tag" id="tag-wind" title="Wind data source">
+                    <span class="tag-dot"></span>WIND
+                </span>
+                <span class="tag" id="tag-waves" title="Wave data source">
+                    <span class="tag-dot"></span>WAVES
+                </span>
+            </div>
+            <div class="clock" id="clock"></div>
+        </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Main Layout                                                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <main id="app-layout">
+        <!-- ─── Map Container ─── -->
+        <div id="map-container">
+            <div id="map"></div>
+
+            <!-- Map overlay: crosshair for click placement -->
+            <div id="map-overlay-info" class="map-overlay">
+                <span class="overlay-icon">⊕</span>
+                <span>Click map to set spill origin</span>
+            </div>
+
+            <!-- Timeline scrubber -->
+            <div id="timeline-container" class="hidden">
+                <div class="timeline-header">
+                    <span class="timeline-label">FORECAST TIMELINE</span>
+                    <span id="timeline-time" class="timeline-time">T+0h</span>
+                </div>
+                <div class="timeline-track-wrapper">
+                    <input type="range" id="timeline-scrubber" min="0" max="100" value="0" step="1">
+                    <div class="timeline-markers" id="timeline-markers"></div>
+                </div>
+                <div class="timeline-controls">
+                    <button id="btn-play" class="timeline-btn" title="Play">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                    </button>
+                    <button id="btn-pause" class="timeline-btn hidden" title="Pause">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    </button>
+                    <button id="btn-reset" class="timeline-btn" title="Reset">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                    </button>
+                    <div class="playback-speed">
+                        <label>Speed:</label>
+                        <select id="playback-speed">
+                            <option value="0.5">0.5×</option>
+                            <option value="1" selected>1×</option>
+                            <option value="2">2×</option>
+                            <option value="4">4×</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── Control Sidebar ─── -->
+        <aside id="sidebar">
+            <!-- Spill Parameters -->
+            <section class="panel" id="panel-params">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m18.07-5.07l-4.24 4.24M9.17 14.83l-4.24 4.24m0-14.14l4.24 4.24m5.66 5.66l4.24 4.24"/></svg>
+                        Spill Parameters
+                    </h2>
+                </div>
+                <div class="panel-body">
+                    <div class="form-group">
+                        <label for="input-lat">Latitude</label>
+                        <input type="number" id="input-lat" value="28.7360" step="0.0001" min="-90" max="90" placeholder="28.7360">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-lon">Longitude</label>
+                        <input type="number" id="input-lon" value="-88.3660" step="0.0001" min="-180" max="180" placeholder="-88.3660">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-volume">Volume (barrels)</label>
+                        <div class="range-group">
+                            <input type="range" id="input-volume-range" min="100" max="100000" value="5000" step="100">
+                            <input type="number" id="input-volume" value="5000" min="100" max="100000" step="100">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="input-duration">Forecast Duration</label>
+                        <div class="duration-buttons">
+                            <button class="dur-btn" data-hours="12">12h</button>
+                            <button class="dur-btn" data-hours="24">24h</button>
+                            <button class="dur-btn" data-hours="48">48h</button>
+                            <button class="dur-btn active" data-hours="72">72h</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="input-particles">Particles</label>
+                        <div class="range-group">
+                            <input type="range" id="input-particles-range" min="100" max="1000" value="500" step="50">
+                            <input type="number" id="input-particles" value="500" min="100" max="1000" step="50">
+                        </div>
+                    </div>
+                    <button id="btn-simulate" class="btn-primary">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>
+                        Run Simulation
+                    </button>
+                </div>
+            </section>
+
+            <!-- Severity Indicator -->
+            <section class="panel" id="panel-severity">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        Severity Assessment
+                    </h2>
+                </div>
+                <div class="panel-body">
+                    <div class="severity-display" id="severity-display">
+                        <div class="severity-badge" id="severity-badge">—</div>
+                        <div class="severity-confidence" id="severity-confidence">Awaiting simulation</div>
+                    </div>
+                    <div class="severity-bars" id="severity-bars">
+                        <div class="severity-bar-item">
+                            <span class="bar-label">Low</span>
+                            <div class="bar-track"><div class="bar-fill bar-low" id="bar-low" style="width:0%"></div></div>
+                            <span class="bar-pct" id="pct-low">—</span>
+                        </div>
+                        <div class="severity-bar-item">
+                            <span class="bar-label">Moderate</span>
+                            <div class="bar-track"><div class="bar-fill bar-moderate" id="bar-moderate" style="width:0%"></div></div>
+                            <span class="bar-pct" id="pct-moderate">—</span>
+                        </div>
+                        <div class="severity-bar-item">
+                            <span class="bar-label">High</span>
+                            <div class="bar-track"><div class="bar-fill bar-high" id="bar-high" style="width:0%"></div></div>
+                            <span class="bar-pct" id="pct-high">—</span>
+                        </div>
+                    </div>
+                    <div class="spread-rate" id="spread-rate">
+                        <span class="spread-label">Spread Rate</span>
+                        <span class="spread-value" id="spread-value">— km²/hr</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Statistics -->
+            <section class="panel" id="panel-stats">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                        Statistics
+                    </h2>
+                </div>
+                <div class="panel-body">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-active">—</span>
+                            <span class="stat-label">Active Particles</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-evaporated">—</span>
+                            <span class="stat-label">Evaporated</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-area">—</span>
+                            <span class="stat-label">Affected Area</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-hour">—</span>
+                            <span class="stat-label">Current Hour</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Layer Controls -->
+            <section class="panel" id="panel-layers">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 2,7 12,12 22,7"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>
+                        Map Layers
+                    </h2>
+                </div>
+                <div class="panel-body">
+                    <div class="layer-toggle">
+                        <label class="toggle">
+                            <input type="checkbox" id="toggle-particles" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label">Particles</span>
+                    </div>
+                    <div class="layer-toggle">
+                        <label class="toggle">
+                            <input type="checkbox" id="toggle-heatmap" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label">Risk Heatmap</span>
+                    </div>
+                    <div class="layer-toggle">
+                        <label class="toggle">
+                            <input type="checkbox" id="toggle-zone" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label">Affected Zone</span>
+                    </div>
+                    <div class="layer-toggle">
+                        <label class="toggle">
+                            <input type="checkbox" id="toggle-trails" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label">Particle Trails</span>
+                    </div>
+                </div>
+            </section>
+        </aside>
+    </main>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="hidden">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Running Simulation...</p>
+            <p class="loading-sub" id="loading-sub">Initializing particle field</p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Scripts                                                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/heatmap.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
